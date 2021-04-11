@@ -1,9 +1,10 @@
-package com.rest.webservice.restfulwebservice.user;
+package com.rest.webservice.restfulwebservice.service.user;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.hateoas.EntityModel;
 import org.springframework.hateoas.server.mvc.WebMvcLinkBuilder;
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -14,7 +15,7 @@ import java.util.List;
 import static org.springframework.hateoas.server.core.DummyInvocationUtils.methodOn;
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
 
-
+@Component
 @RestController
 public class UserController {
 
@@ -28,39 +29,51 @@ public class UserController {
 
 
     @GetMapping(path = "/user/{id}")
-    public User retrieveUser(@PathVariable int id) {
-        User user = userService.findOne(id);
-        if(user == null) {
-            throw new UserNotFoundException("id-" + id);
-        }
+    public EntityModel retrieveUser(@PathVariable int id) {
 
+        User user = userService.findUserById(id);
         //HATEOAS
-
         EntityModel<User> resource = EntityModel.of(user);
         WebMvcLinkBuilder linkTo =
                 linkTo(methodOn(this.getClass()).retrieveAllUsers());
         resource.add(linkTo.withRel("all-users"));
 
-        return user;
+        return resource;
     }
 
     @DeleteMapping(path = "/user/{id}")
-    public User deleteUser(@PathVariable int id) {
+    public void deleteUser(@PathVariable int id) {
 
-        User user = userService.delete(id);
-        if(user == null) {
-            throw new UserNotFoundException("id-" + id);
-        }
-        return user;
+        userService.delete(id);
     }
 
-    @PostMapping(path = "/users")
-    public ResponseEntity<User> createUser(@RequestBody @Valid User user) {
-        User savedUser = userService.save(user);
+    @PostMapping(
+            path = "/users",
+            produces = {"application/json"},
+            consumes = {"application/json"})
+    public ResponseEntity<UserResponse> createUser(@RequestBody @Valid UserRequest user) {
 
+        User savedUser = userService.save(user);
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("{id}")
+                .buildAndExpand(savedUser.getId())
+                .toUri();
+
+        return ResponseEntity.created(location).build();
+    }
+
+    @RequestMapping(
+            value = "/email/",
+            produces = {"application/json"},
+            consumes = {"*/*"},
+            method = {RequestMethod.POST})
+    public ResponseEntity<UserResponse> saveEmail(@RequestBody @Valid User email) {
+
+        UserResponse savedUser = userService.saveEmail(email.getEmail());
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("{email}")
                 .buildAndExpand(savedUser.getId())
                 .toUri();
 
